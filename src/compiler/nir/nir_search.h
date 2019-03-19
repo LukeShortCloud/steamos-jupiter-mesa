@@ -244,7 +244,8 @@ nir_replace_instr(struct nir_builder *b, nir_alu_instr *instr,
                   const nir_algebraic_table *table,
                   const nir_search_expression *search,
                   const nir_search_value *replace,
-                  nir_instr_worklist *algebraic_worklist);
+                  nir_instr_worklist *algebraic_worklist,
+                  struct exec_list *dead_instrs);
 bool
 nir_algebraic_impl(nir_function_impl *impl,
                    const bool *condition_flags,
