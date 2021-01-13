@@ -2724,9 +2724,6 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
 
    key.ps.force_vrs = pipeline->device->force_vrs;
 
-   if (pipeline->device->instance->debug_flags & RADV_DEBUG_INVARIANT_GEOM)
-      key.invariant_geom = true;
-
    key.use_ngg = pipeline->device->physical_device->use_ngg;
 
    return key;

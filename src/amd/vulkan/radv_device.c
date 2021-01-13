@@ -843,7 +843,6 @@ static const struct debug_control radv_debug_options[] = {
    {"hang", RADV_DEBUG_HANG},
    {"img", RADV_DEBUG_IMG},
    {"noumr", RADV_DEBUG_NO_UMR},
-   {"invariantgeom", RADV_DEBUG_INVARIANT_GEOM},
    {"nodisplaydcc", RADV_DEBUG_NO_DISPLAY_DCC},
    {"notccompatcmask", RADV_DEBUG_NO_TC_COMPAT_CMASK},
    {"novrsflatshading", RADV_DEBUG_NO_VRS_FLAT_SHADING},
@@ -899,7 +898,6 @@ static const driOptionDescription radv_dri_options[] = {
       DRI_CONF_VK_WSI_FORCE_BGRA8_UNORM_FIRST(false)
       DRI_CONF_RADV_ZERO_VRAM(false)
       DRI_CONF_RADV_LOWER_DISCARD_TO_DEMOTE(false)
-      DRI_CONF_RADV_INVARIANT_GEOM(false)
       DRI_CONF_RADV_DISABLE_TC_COMPAT_HTILE_GENERAL(false)
       DRI_CONF_RADV_DISABLE_DCC(false)
       DRI_CONF_RADV_REPORT_APU_AS_DGPU(false)
@@ -936,9 +934,6 @@ radv_init_dri_options(struct radv_instance *instance)
 
    if (driQueryOptionb(&instance->dri_options, "radv_lower_discard_to_demote"))
       instance->debug_flags |= RADV_DEBUG_DISCARD_TO_DEMOTE;
-
-   if (driQueryOptionb(&instance->dri_options, "radv_invariant_geom"))
-      instance->debug_flags |= RADV_DEBUG_INVARIANT_GEOM;
 
    if (driQueryOptionb(&instance->dri_options, "radv_disable_dcc"))
       instance->debug_flags |= RADV_DEBUG_NO_DCC;
