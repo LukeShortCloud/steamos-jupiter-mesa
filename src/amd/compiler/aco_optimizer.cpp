@@ -3363,8 +3363,21 @@ combine_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
 
          Operand op[3] = {info.instr->operands[0], info.instr->operands[1], instr->operands[1 - i]};
          if (info.instr->isSDWA() || info.instr->isDPP() || !check_vop3_operands(ctx, 3, op) ||
-             ctx.uses[instr->operands[i].tempId()] >= uses)
+             ctx.uses[instr->operands[i].tempId()] > uses)
             continue;
+
+         if (ctx.uses[instr->operands[i].tempId()] == uses) {
+            /* Choose the multiplication with operands defined the closest
+             * to the addition. Since temporary IDs are usually allocated
+             * consecutively, we can use them for a heuristic.
+             */
+            unsigned cur_idx =
+               MAX2(mul_instr->operands[0].tempId(), mul_instr->operands[1].tempId());
+            unsigned new_idx =
+               MAX2(info.instr->operands[0].tempId(), info.instr->operands[1].tempId());
+            if (cur_idx > new_idx)
+               continue;
+         }
 
          mul_instr = info.instr;
          add_op_idx = 1 - i;
