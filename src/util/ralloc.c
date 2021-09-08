@@ -36,24 +36,24 @@
 
 #define CANARY 0x5A1106
 
+#ifdef _MSC_VER
+#if _WIN64
+#define HEADER_ALIGN __declspec(align(16))
+#else
+#define HEADER_ALIGN  __declspec(align(8))
+#endif
+#elif defined(__LP64__)
+#define HEADER_ALIGN  __attribute__((aligned(16)))
+#else
+#define HEADER_ALIGN  __attribute__((aligned(8)))
+#endif
+
 /* Align the header's size so that ralloc() allocations will return with the
  * same alignment as a libc malloc would have (8 on 32-bit GLIBC, 16 on
  * 64-bit), avoiding performance penalities on x86 and alignment faults on
  * ARM.
  */
-struct
-#ifdef _MSC_VER
-#if _WIN64
-__declspec(align(16))
-#else
- __declspec(align(8))
-#endif
-#elif defined(__LP64__)
- __attribute__((aligned(16)))
-#else
- __attribute__((aligned(8)))
-#endif
-   ralloc_header
+struct HEADER_ALIGN ralloc_header
 {
 #ifndef NDEBUG
    /* A canary value used to determine whether a pointer is ralloc'd. */
@@ -554,15 +554,7 @@ ralloc_vasprintf_rewrite_tail(char **str, size_t *start, const char *fmt,
 #define SUBALLOC_ALIGNMENT 8
 #define LMAGIC 0x87b9c7d3
 
-struct
-#ifdef _MSC_VER
- __declspec(align(8))
-#elif defined(__LP64__)
- __attribute__((aligned(16)))
-#else
- __attribute__((aligned(8)))
-#endif
-   linear_header {
+struct HEADER_ALIGN linear_header {
 #ifndef NDEBUG
    unsigned magic;   /* for debugging */
 #endif
