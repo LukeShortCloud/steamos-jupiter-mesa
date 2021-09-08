@@ -539,7 +539,7 @@ write_src(write_ctx *ctx, const nir_src *src)
 }
 
 static union packed_src
-read_src(read_ctx *ctx, nir_src *src, void *mem_ctx)
+read_src(read_ctx *ctx, nir_src *src)
 {
    STATIC_ASSERT(sizeof(union packed_src) == 4);
    union packed_src header;
@@ -553,7 +553,7 @@ read_src(read_ctx *ctx, nir_src *src, void *mem_ctx)
       src->reg.base_offset = blob_read_uint32(ctx->blob);
       if (header.any.is_indirect) {
          src->reg.indirect = malloc(sizeof(nir_src));
-         read_src(ctx, src->reg.indirect, mem_ctx);
+         read_src(ctx, src->reg.indirect);
       } else {
          src->reg.indirect = NULL;
       }
@@ -773,7 +773,7 @@ read_dest(read_ctx *ctx, nir_dest *dst, nir_instr *instr,
       dst->reg.base_offset = blob_read_uint32(ctx->blob);
       if (dest.reg.is_indirect) {
          dst->reg.indirect = malloc(sizeof(nir_src));
-         read_src(ctx, dst->reg.indirect, instr);
+         read_src(ctx, dst->reg.indirect);
       }
    }
 }
@@ -929,7 +929,7 @@ read_alu(read_ctx *ctx, union packed_instr header)
       }
    } else {
       for (unsigned i = 0; i < num_srcs; i++) {
-         union packed_src src = read_src(ctx, &alu->src[i].src, &alu->instr);
+         union packed_src src = read_src(ctx, &alu->src[i].src);
          unsigned src_channels = nir_ssa_alu_instr_src_components(alu, i);
          unsigned src_components = nir_src_num_components(alu->src[i].src);
          bool packed = src_components <= 4 && src_channels <= 4;
@@ -1106,7 +1106,7 @@ read_deref(read_ctx *ctx, union packed_instr header)
       break;
 
    case nir_deref_type_struct:
-      read_src(ctx, &deref->parent, &deref->instr);
+      read_src(ctx, &deref->parent);
       parent = nir_src_as_deref(deref->parent);
       deref->strct.index = blob_read_uint32(ctx->blob);
       deref->type = glsl_get_struct_field(parent->type, deref->strct.index);
@@ -1120,8 +1120,8 @@ read_deref(read_ctx *ctx, union packed_instr header)
          deref->arr.index.is_ssa = true;
          deref->arr.index.ssa = read_lookup_object(ctx, blob_read_uint16(ctx->blob));
       } else {
-         read_src(ctx, &deref->parent, &deref->instr);
-         read_src(ctx, &deref->arr.index, &deref->instr);
+         read_src(ctx, &deref->parent);
+         read_src(ctx, &deref->arr.index);
       }
 
       parent = nir_src_as_deref(deref->parent);
@@ -1132,7 +1132,7 @@ read_deref(read_ctx *ctx, union packed_instr header)
       break;
 
    case nir_deref_type_cast:
-      read_src(ctx, &deref->parent, &deref->instr);
+      read_src(ctx, &deref->parent);
       deref->cast.ptr_stride = blob_read_uint32(ctx->blob);
       deref->cast.align_mul = blob_read_uint32(ctx->blob);
       deref->cast.align_offset = blob_read_uint32(ctx->blob);
@@ -1145,7 +1145,7 @@ read_deref(read_ctx *ctx, union packed_instr header)
       break;
 
    case nir_deref_type_array_wildcard:
-      read_src(ctx, &deref->parent, &deref->instr);
+      read_src(ctx, &deref->parent);
       parent = nir_src_as_deref(deref->parent);
       deref->type = glsl_get_array_element(parent->type);
       break;
@@ -1245,7 +1245,7 @@ read_intrinsic(read_ctx *ctx, union packed_instr header)
       read_dest(ctx, &intrin->dest, &intrin->instr, header);
 
    for (unsigned i = 0; i < num_srcs; i++)
-      read_src(ctx, &intrin->src[i], &intrin->instr);
+      read_src(ctx, &intrin->src[i]);
 
    /* Vectorized instrinsics have num_components same as dst or src that has
     * 0 components in the info. Find it.
@@ -1565,7 +1565,7 @@ read_tex(read_ctx *ctx, union packed_instr header)
    tex->array_is_lowered_cube = packed.u.array_is_lowered_cube;
 
    for (unsigned i = 0; i < tex->num_srcs; i++) {
-      union packed_src src = read_src(ctx, &tex->src[i].src, &tex->instr);
+      union packed_src src = read_src(ctx, &tex->src[i].src);
       tex->src[i].src_type = src.tex.src_type;
    }
 
@@ -1710,7 +1710,7 @@ read_call(read_ctx *ctx)
    nir_call_instr *call = nir_call_instr_create(ctx->nir, callee);
 
    for (unsigned i = 0; i < call->num_params; i++)
-      read_src(ctx, &call->params[i], call);
+      read_src(ctx, &call->params[i]);
 
    return call;
 }
@@ -1863,7 +1863,7 @@ read_if(read_ctx *ctx, struct exec_list *cf_list)
 {
    nir_if *nif = nir_if_create(ctx->nir);
 
-   read_src(ctx, &nif->condition, nif);
+   read_src(ctx, &nif->condition);
    nif->control = blob_read_uint8(ctx->blob);
 
    nir_cf_node_insert_end(cf_list, &nif->cf_node);
