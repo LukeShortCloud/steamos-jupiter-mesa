@@ -347,29 +347,7 @@ void si_destroy_shader_cache(struct si_screen *sscreen)
 
 bool si_shader_mem_ordered(struct si_shader *shader)
 {
-   if (shader->selector->screen->info.chip_class < GFX10)
-      return false;
-
-   const struct si_shader_info *info = &shader->selector->info;
-   const struct si_shader_info *prev_info =
-      shader->previous_stage_sel ? &shader->previous_stage_sel->info : NULL;
-
-   bool sampler_or_bvh = info->uses_vmem_return_type_sampler_or_bvh;
-   bool other = info->uses_vmem_return_type_other ||
-                info->uses_indirect_descriptor ||
-                shader->config.scratch_bytes_per_wave ||
-                (info->stage == MESA_SHADER_FRAGMENT &&
-                 (info->base.fs.uses_fbfetch_output ||
-                  shader->key.part.ps.prolog.poly_stipple));
-
-   if (prev_info) {
-      sampler_or_bvh |= prev_info->uses_vmem_return_type_sampler_or_bvh;
-      other |= prev_info->uses_vmem_return_type_other ||
-               prev_info->uses_indirect_descriptor;
-   }
-
-   /* Return true if both types of VMEM that return something are used. */
-   return sampler_or_bvh && other;
+   return shader->selector->screen->info.chip_class >= GFX10;
 }
 
 static void si_set_tesseval_regs(struct si_screen *sscreen, const struct si_shader_selector *tes,
