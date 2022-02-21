@@ -61,7 +61,7 @@ libvulkan_wsi = static_library(
   include_directories : [inc_include, inc_src, inc_gallium],
   dependencies : [
     vulkan_wsi_deps, dep_libdrm, dep_libudev, idep_vulkan_util_headers,
-    idep_vulkan_runtime_headers, idep_xmlconfig,
+    idep_vulkan_runtime_headers, idep_xmlconfig, idep_mesautil
   ],
   c_args : [vulkan_wsi_args],
   gnu_symbol_visibility : 'hidden',
