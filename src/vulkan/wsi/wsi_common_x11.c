@@ -40,6 +40,7 @@
 #include "drm-uapi/drm_fourcc.h"
 #include "util/hash_table.h"
 #include "util/os_time.h"
+#include "util/simple_mtx.h"
 #include "util/u_debug.h"
 #include "util/u_thread.h"
 #include "util/xmlconfig.h"
@@ -171,6 +172,30 @@ wsi_x11_detect_xwayland(xcb_connection_t *conn)
    free(goi_reply);
 
    return is_xwayland;
+}
+
+static unsigned
+gamescope_swapchain_override()
+{
+   const char *path = getenv("GAMESCOPE_LIMITER_FILE");
+   if (!path)
+      return 0;
+
+   static simple_mtx_t mtx = _SIMPLE_MTX_INITIALIZER_NP;
+   static int fd = -1;
+
+   simple_mtx_lock(&mtx);
+   if (fd < 0) {
+      fd = open(path, O_RDONLY);
+   }
+   simple_mtx_unlock(&mtx);
+
+   if (fd < 0)
+      return 0;
+
+   uint32_t override_value = 0;
+   pread(fd, &override_value, sizeof(override_value), 0);
+   return override_value;
 }
 
 static struct wsi_x11_connection *
@@ -903,6 +928,8 @@ struct x11_swapchain {
    struct wsi_queue                             acquire_queue;
    pthread_t                                    queue_manager;
 
+   VkPresentModeKHR                             orig_present_mode;
+
    struct x11_image                             images[0];
 };
 VK_DEFINE_NONDISP_HANDLE_CASTS(x11_swapchain, base.base, VkSwapchainKHR,
@@ -1293,6 +1320,12 @@ x11_queue_present(struct wsi_swapchain *anv_chain,
    /* If the swapchain is in an error state, don't go any further. */
    if (chain->status < 0)
       return chain->status;
+
+   unsigned gamescope_override = gamescope_swapchain_override();
+   if ((gamescope_override == 1 && chain->base.present_mode != VK_PRESENT_MODE_FIFO_KHR) ||
+       (gamescope_override != 1 && chain->base.present_mode != chain->orig_present_mode)) {
+      return x11_swapchain_result(chain, VK_ERROR_OUT_OF_DATE_KHR);
+   }
 
    chain->images[image_index].busy = true;
    if (chain->has_present_queue) {
@@ -1728,6 +1761,10 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    xcb_void_cookie_t cookie;
    VkResult result;
    VkPresentModeKHR present_mode = wsi_swapchain_get_present_mode(wsi_device, pCreateInfo);
+   VkPresentModeKHR orig_present_mode = present_mode;
+
+   if (gamescope_swapchain_override() == 1)
+      present_mode = VK_PRESENT_MODE_FIFO_KHR;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
 
@@ -1777,6 +1814,7 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    chain->base.acquire_next_image = x11_acquire_next_image;
    chain->base.queue_present = x11_queue_present;
    chain->base.present_mode = present_mode;
+   chain->orig_present_mode = orig_present_mode;
    chain->base.image_count = num_images;
    chain->conn = conn;
    chain->window = window;

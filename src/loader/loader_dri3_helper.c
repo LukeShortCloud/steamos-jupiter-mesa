@@ -37,6 +37,7 @@
 #include "loader_dri_helper.h"
 #include "loader_dri3_helper.h"
 #include "util/macros.h"
+#include "util/simple_mtx.h"
 #include "drm-uapi/drm_fourcc.h"
 
 /* From driconf.h, user exposed so should be stable */
@@ -314,6 +315,30 @@ dri3_update_max_num_back(struct loader_dri3_drawable *draw)
    }
 }
 
+static unsigned
+gamescope_swapchain_override()
+{
+   const char *path = getenv("GAMESCOPE_LIMITER_FILE");
+   if (!path)
+      return 0;
+
+   static simple_mtx_t mtx = _SIMPLE_MTX_INITIALIZER_NP;
+   static int fd = -1;
+
+   simple_mtx_lock(&mtx);
+   if (fd < 0) {
+      fd = open(path, O_RDONLY);
+   }
+   simple_mtx_unlock(&mtx);
+
+   if (fd < 0)
+      return 0;
+
+   uint32_t override_value = 0;
+   pread(fd, &override_value, sizeof(override_value), 0);
+   return override_value;
+}
+
 void
 loader_dri3_set_swap_interval(struct loader_dri3_drawable *draw, int interval)
 {
@@ -328,10 +353,12 @@ loader_dri3_set_swap_interval(struct loader_dri3_drawable *draw, int interval)
     * PS. changing from value A to B and A < B won't cause swap out of order but
     * may still gets wrong target_msc value at the beginning.
     */
-   if (draw->swap_interval != interval)
+   if (draw->orig_swap_interval != interval)
       loader_dri3_swapbuffer_barrier(draw);
 
-   draw->swap_interval = interval;
+   draw->orig_swap_interval = interval;
+   if (gamescope_swapchain_override() != 1)
+      draw->swap_interval = interval;
 }
 
 /** dri3_free_render_buffer
@@ -450,6 +477,11 @@ loader_dri3_drawable_init(xcb_connection_t *conn,
       break;
    }
    draw->swap_interval = swap_interval;
+   draw->orig_swap_interval = swap_interval;
+
+   unsigned gamescope_override = gamescope_swapchain_override();
+   if (gamescope_override == 1)
+      draw->swap_interval = 1;
 
    dri3_update_max_num_back(draw);
 
@@ -1073,6 +1105,12 @@ loader_dri3_swap_buffers_msc(struct loader_dri3_drawable *draw,
 
    if (draw->type == LOADER_DRI3_DRAWABLE_WINDOW) {
       dri3_fence_reset(draw->conn, back);
+
+      unsigned gamescope_override = gamescope_swapchain_override();
+      if (gamescope_override == 1)
+         draw->swap_interval = 1;
+      else
+         draw->swap_interval = draw->orig_swap_interval;
 
       /* Compute when we want the frame shown by taking the last known
        * successful MSC and adding in a swap interval for each outstanding swap

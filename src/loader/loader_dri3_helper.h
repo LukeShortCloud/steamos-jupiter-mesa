@@ -174,6 +174,7 @@ struct loader_dri3_drawable {
    bool adaptive_sync;
    bool adaptive_sync_active;
    int swap_interval;
+   int orig_swap_interval;
 
    struct loader_dri3_extensions *ext;
    const struct loader_dri3_vtable *vtable;
