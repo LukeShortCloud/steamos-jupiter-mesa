@@ -552,6 +552,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .NV_mesh_shader = device->use_ngg && device->rad_info.chip_class >= GFX10_3 &&
                         device->instance->perftest_flags & RADV_PERFTEST_NV_MS && !device->use_llvm,
       .VALVE_mutable_descriptor_type = true,
+      .VALVE_descriptor_set_host_mapping = true,
    };
 }
 
@@ -1661,6 +1662,12 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          VkPhysicalDeviceTextureCompressionASTCHDRFeatures *features =
             (VkPhysicalDeviceTextureCompressionASTCHDRFeatures *)ext;
          features->textureCompressionASTC_HDR = false;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_SET_HOST_MAPPING_FEATURES_VALVE: {
+         VkPhysicalDeviceDescriptorSetHostMappingFeaturesVALVE *features =
+            (VkPhysicalDeviceDescriptorSetHostMappingFeaturesVALVE *)ext;
+         features->descriptorSetHostMapping = true;
          break;
       }
       default:
@@ -3190,7 +3197,8 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
                                 device->vk.enabled_extensions.EXT_buffer_device_address ||
                                 device->vk.enabled_extensions.KHR_buffer_device_address ||
                                 device->vk.enabled_extensions.KHR_ray_tracing_pipeline ||
-                                device->vk.enabled_extensions.KHR_acceleration_structure;
+                                device->vk.enabled_extensions.KHR_acceleration_structure ||
+                                device->vk.enabled_extensions.VALVE_descriptor_set_host_mapping;
 
    device->robust_buffer_access = robust_buffer_access || robust_buffer_access2;
    device->robust_buffer_access2 = robust_buffer_access2;
