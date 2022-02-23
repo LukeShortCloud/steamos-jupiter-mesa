@@ -616,7 +616,7 @@ x11_surface_get_support(VkIcdSurfaceBase *icd_surface,
 }
 
 static uint32_t
-x11_get_min_image_count(struct wsi_device *wsi_device)
+x11_get_min_image_count(const struct wsi_device *wsi_device)
 {
    if (wsi_device->x11.override_minImageCount)
       return wsi_device->x11.override_minImageCount;
@@ -1487,12 +1487,33 @@ x11_manage_fifo_queues(void *state)
          goto fail;
 
       if (chain->has_acquire_queue) {
+         /* Assume this isn't a swapchain where we force 5 images, because those
+          * don't end up with an acquire queue at the moment.
+          *
+          * Any images beyond this need to be available to the app without the app
+          * presenting anything else:
+          * "VUID-vkAcquireNextImageKHR-swapchain-01802
+          *  If the number of currently acquired images is greater than the difference
+          *  between the number of images in swapchain and the value of
+          *  VkSurfaceCapabilitiesKHR::minImageCount as returned by a call to
+          * vkGetPhysicalDeviceSurfaceCapabilities2KHR with the surface used to
+          * create swapchain, timeout must not be UINT64_MAX"
+          *
+          * Note that we do >= instead of > below because most games assume they
+          * can always wait for an image even with images == minImageCount
+          */
+         unsigned min_image_count = x11_get_min_image_count(chain->base.wsi);
+
+         /* With drirc overrides some games have swapchain with less than
+          * minimum number of images. */
+         min_image_count = MIN2(min_image_count, chain->base.image_count);
+
          /* Wait for our presentation to occur and ensure we have at least one
           * image that can be acquired by the client afterwards. This ensures we
           * can pull on the present-queue on the next loop.
           */
          while (chain->images[image_index].present_queued ||
-                chain->sent_image_count == chain->base.image_count) {
+                chain->sent_image_count >= min_image_count) {
             xcb_generic_event_t *event =
                xcb_wait_for_special_event(chain->conn, chain->special_event);
             if (!event) {
